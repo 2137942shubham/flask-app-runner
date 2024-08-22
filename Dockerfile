@@ -1,34 +1,21 @@
-# Define global arguments
-ARG APP_DIR="/app"
+# Use the official lightweight Python image.
+# https://hub.docker.com/_/python
+FROM python:3.11-slim
 
-#
-# Build image
-#
-FROM python:3.11-slim-bookworm AS build-env
-ARG APP_DIR
+# Allow statements and log messages to immediately appear in the Knative logs
+ENV PYTHONUNBUFFERED True
 
-# Setup gunicorn
-RUN pip install --no-cache-dir gunicorn
+# Copy local code to the container image.
+ENV APP_HOME /app
+WORKDIR $APP_HOME
+COPY . ./
 
-# Install application
-COPY "app/requirements.txt" "${APP_DIR}/requirements.txt"
-RUN pip install --no-cache-dir -r "${APP_DIR}/requirements.txt"
-COPY "app/*.py" "${APP_DIR}/"
-COPY "app/templates/*" "${APP_DIR}/templates/"
-COPY "app/static/*" "${APP_DIR}/static/"
+# Install production dependencies.
+RUN pip install --no-cache-dir -r requirements.txt
 
-#
-# Application image
-#
-FROM gcr.io/distroless/python3-debian12
-ARG APP_DIR
-
-# Copy Application
-COPY --from=build-env "${APP_DIR}/" "${APP_DIR}/"
-COPY --from=build-env /usr/local/lib/python3.11/site-packages /root/.local/lib/python3.11/site-packages
-COPY --from=build-env /usr/local/bin/gunicorn /usr/local/bin/gunicorn
-
-# Command settings
-WORKDIR "${APP_DIR}"
-ENV GUNICORN_CMD_ARGS="--bind=0.0.0.0:5000 --workers=4 --thread=2 --timeout 300 --capture-output"
-CMD ["/usr/local/bin/gunicorn", "app:app"]
+# Run the web service on container startup. Here we use the gunicorn
+# webserver, with one worker process and 8 threads.
+# For environments with multiple CPU cores, increase the number of workers
+# to be equal to the cores available.
+# Timeout is set to 0 to disable the timeouts of the workers to allow Cloud Run to handle instance scaling.
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
