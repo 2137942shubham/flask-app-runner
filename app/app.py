@@ -1,11 +1,9 @@
 from flask import Flask, render_template, request, Blueprint, url_for, redirect, session,Response, flash,jsonify,request
-import pandas as pd
-import numpy as np
-import vertexai
-import json
+
+
 import os
 import requests
-from flask_cors import CORS
+
 
 
 
